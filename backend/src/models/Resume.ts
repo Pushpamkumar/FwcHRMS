@@ -1,6 +1,7 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 export interface IResume extends Document {
+  candidateId?: Types.ObjectId;
   jobPostingId: Types.ObjectId;
   candidateName: string;
   candidateEmail: string;
@@ -42,12 +43,22 @@ export interface IResume extends Document {
     | 'offer'
     | 'hired'
     | 'rejected';
+  offerDetails?: {
+    designation: string;
+    salaryAnnual: number;
+    joiningDate: Date;
+    status: 'pending_manager' | 'approved' | 'rejected' | 'none';
+    managerNotes?: string;
+    requestedAt?: Date;
+    processedAt?: Date;
+  };
   appliedAt: Date;
   updatedAt: Date;
 }
 
 const ResumeSchema = new Schema<IResume>(
   {
+    candidateId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     jobPostingId: { type: Schema.Types.ObjectId, ref: 'JobPosting', required: true, index: true },
     candidateName: { type: String, required: true },
     candidateEmail: { type: String, required: true, index: true },
@@ -99,6 +110,15 @@ const ResumeSchema = new Schema<IResume>(
         'rejected',
       ],
       default: 'screening',
+    },
+    offerDetails: {
+      designation: { type: String },
+      salaryAnnual: { type: Number },
+      joiningDate: { type: Date },
+      status: { type: String, enum: ['pending_manager', 'approved', 'rejected', 'none'], default: 'none' },
+      managerNotes: { type: String },
+      requestedAt: { type: Date },
+      processedAt: { type: Date }
     },
     appliedAt: { type: Date, default: Date.now },
   },

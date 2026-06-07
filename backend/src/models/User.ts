@@ -6,7 +6,7 @@ export interface IUser extends Document {
   lastName: string;
   email: string;
   passwordHash: string;
-  role: 'admin' | 'manager' | 'hr_recruiter' | 'employee';
+  role: 'admin' | 'manager' | 'hr_recruiter' | 'employee' | 'candidate';
   department?: Types.ObjectId;
   reportingManagerId?: Types.ObjectId;
   profilePhoto?: string;
@@ -67,7 +67,7 @@ const UserSchema = new Schema<IUser>(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     passwordHash: { type: String, required: true },
-    role: { type: String, required: true, enum: ['admin', 'manager', 'hr_recruiter', 'employee'] },
+    role: { type: String, required: true, enum: ['admin', 'manager', 'hr_recruiter', 'employee', 'candidate'] },
     department: { type: Schema.Types.ObjectId, ref: 'Department', index: true },
     reportingManagerId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     profilePhoto: { type: String },

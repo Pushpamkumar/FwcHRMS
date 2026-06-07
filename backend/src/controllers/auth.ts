@@ -38,8 +38,8 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'All mandatory fields are required.' });
     }
 
-    // Validate email domain (must end in @fwcit.com)
-    if (!email.endsWith('@fwcit.com')) {
+    // Validate email domain (must end in @fwcit.com for internal roles)
+    if (role !== 'candidate' && !email.endsWith('@fwcit.com')) {
       return res.status(400).json({ message: 'Registration is restricted to @fwcit.com domain email accounts only.' });
     }
 
@@ -50,7 +50,7 @@ export const register = async (req: Request, res: Response) => {
     }
 
     // Verify department exists if provided
-    if (departmentId) {
+    if (departmentId && role !== 'candidate') {
       const dept = await Department.findById(departmentId);
       if (!dept) {
         return res.status(400).json({ message: 'Invalid department ID.' });
@@ -58,7 +58,9 @@ export const register = async (req: Request, res: Response) => {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const employeeId = await generateEmployeeId();
+    const employeeId = role === 'candidate'
+      ? `CAN-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+      : await generateEmployeeId();
 
     const newUser = await User.create({
       employeeId,
@@ -68,10 +70,17 @@ export const register = async (req: Request, res: Response) => {
       passwordHash,
       role,
       phone,
-      department: departmentId,
+      department: role === 'candidate' ? undefined : departmentId,
       isActive: true,
-      isEmailVerified: false, // will require verification
+      isEmailVerified: role === 'candidate' ? true : false, // Auto-verify candidates
     });
+
+    if (role === 'candidate') {
+      return res.status(201).json({
+        message: 'Candidate registration successful. You can now log in.',
+        employeeId,
+      });
+    }
 
     // Generate validation verification token
     const verificationToken = jwt.sign(
