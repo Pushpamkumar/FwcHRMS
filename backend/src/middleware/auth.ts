@@ -6,7 +6,7 @@ export interface AuthUser {
   sub?: string;
   employeeId: string;
   email: string;
-  role: 'admin' | 'manager' | 'hr_recruiter' | 'employee';
+  role: 'admin' | 'manager' | 'hr_recruiter' | 'employee' | 'candidate';
   department?: string;
 }
 
@@ -41,7 +41,7 @@ export const authenticateJWT = (req: AuthenticatedRequest, res: Response, next: 
   }
 };
 
-export const roleGuard = (...roles: Array<'admin' | 'manager' | 'hr_recruiter' | 'employee'>) => {
+export const roleGuard = (...roles: Array<'admin' | 'manager' | 'hr_recruiter' | 'employee' | 'candidate'>) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized. Authentication required.' });

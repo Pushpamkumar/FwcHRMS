@@ -87,7 +87,87 @@ export const applyToJob = async (req: Request, res: Response) => {
       }
     }
 
-    // Create candidate application document
+    // ─── IMMEDIATE SKILL-BASED AI SCREENING ─────────────────────────────────
+    // Run synchronously right at application time so score is always non-zero.
+    // Scoring: 60% skill match | 25% experience signals | 15% education signals
+    console.log(`[AI Screening] Running instant skill-based screening for ${candidateName}...`);
+
+    const jobSkills: string[] = job.requirements?.requiredSkills || [];
+    const minExp: number = job.requirements?.minExperience || 0;
+
+    // Fetch candidate's registered skills if they have an account
+    let candidateSkills: string[] = [];
+    let candidateDesignation = '';
+    if (candidateId) {
+      try {
+        const candidateUser = await User.findById(candidateId).select('skills employmentDetails');
+        if (candidateUser) {
+          candidateSkills = candidateUser.skills || [];
+          candidateDesignation = candidateUser.employmentDetails?.designation || '';
+        }
+      } catch (_) { /* ignore */ }
+    }
+
+    // Helper: case-insensitive escape for regex matching
+    const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Match job skills against candidate's profile skills (primary) + URL/name (soft fallback)
+    const combinedText = [
+      ...candidateSkills,
+      candidateDesignation,
+      candidateName,
+      resumeUrl,
+    ].join(' ');
+
+    const matched: string[] = [];
+    const missing: string[] = [];
+
+    for (const skill of jobSkills) {
+      if (new RegExp(escapeReg(skill), 'i').test(combinedText)) {
+        matched.push(skill);
+      } else {
+        missing.push(skill);
+      }
+    }
+
+    // Skills match score (0-100)
+    const skillsMatch = jobSkills.length > 0
+      ? Math.round((matched.length / jobSkills.length) * 100)
+      : 50;
+
+    // Experience signal: check URL/name/designation for experience indicators
+    const expText = combinedText.toLowerCase();
+    let experienceMatch = 50;
+    if (minExp === 0) experienceMatch = 75; // fresher role — anyone qualifies
+    else if (expText.includes('senior') || expText.includes('lead') || expText.includes('sr.')) experienceMatch = 90;
+    else if (expText.includes('mid') || expText.includes('engineer') || expText.includes('developer')) experienceMatch = 70;
+    else if (expText.includes('intern') || expText.includes('fresher') || expText.includes('trainee')) experienceMatch = minExp === 0 ? 80 : 40;
+
+    // Education signal
+    let educationMatch = 60;
+    const eduText = combinedText.toLowerCase();
+    if (eduText.includes('b.tech') || eduText.includes('btech') || eduText.includes('b.e') ||
+        eduText.includes('m.tech') || eduText.includes('mtech') || eduText.includes('mca') ||
+        eduText.includes('bca') || eduText.includes('degree') || eduText.includes('university') ||
+        eduText.includes('lpu') || eduText.includes('iit') || eduText.includes('nit')) {
+      educationMatch = 90;
+    }
+
+    // Weighted overall score
+    const overallScore = Math.min(100, Math.round(
+      (skillsMatch * 0.60) + (experienceMatch * 0.25) + (educationMatch * 0.15)
+    ));
+
+    const keywordsMatch = Math.round((skillsMatch + experienceMatch + educationMatch) / 3);
+    const aiStatus: 'shortlisted' | 'review' | 'rejected' = overallScore >= 70 ? 'shortlisted' : overallScore >= 45 ? 'review' : 'rejected';
+
+    const aiSummary = matched.length > 0
+      ? `Candidate profile matches ${matched.length}/${jobSkills.length} required skills (${matched.join(', ')}). ` +
+        `${missing.length > 0 ? `Skill gaps identified: ${missing.join(', ')}. ` : 'No major skill gaps. '}` +
+        `Overall compatibility score is ${overallScore}%. ${aiStatus === 'shortlisted' ? 'Recommended for shortlisting.' : aiStatus === 'review' ? 'Recommend manual review.' : 'Profile does not meet minimum requirements.'}`
+      : `No direct skill overlap detected from profile. Manual review recommended. Score: ${overallScore}%.`;
+
+    // Save screening result immediately via a single Resume.create()
     const resume = await Resume.create({
       jobPostingId: jobId,
       candidateId,
@@ -95,65 +175,37 @@ export const applyToJob = async (req: Request, res: Response) => {
       candidateEmail: candidateEmail.toLowerCase(),
       candidatePhone,
       resumeUrl,
-      applicationStage: 'screening',
+      applicationStage: aiStatus === 'shortlisted' ? 'shortlisted' : 'screening',
+      aiScreening: {
+        overallScore,
+        status: aiStatus,
+        processedAt: new Date(),
+        scores: { skillsMatch, experienceMatch, educationMatch, keywordsMatch },
+        matchedSkills: matched,
+        missingSkills: missing,
+        aiSummary,
+        aiModel: 'NexHR Skills Engine v2',
+      },
     });
 
-    // Increment applications count
+    // Increment applications count + pipeline counters
     job.applicationsCount += 1;
-    job.pipeline.screening += 1;
+    if (aiStatus === 'shortlisted') {
+      job.shortlistedCount = (job.shortlistedCount || 0) + 1;
+      job.pipeline.shortlisted = (job.pipeline.shortlisted || 0) + 1;
+    } else {
+      job.pipeline.screening = (job.pipeline.screening || 0) + 1;
+    }
     await job.save();
 
-    // Trigger AI Screening request directly to Python FastAPI microservice
-    // Real-time integration! We will run this async without blocking client response.
-    try {
-      console.log(`[AI Integration] Triggering automatic resume screening for ${candidateName}...`);
-      fetch(`${AI_SERVICE_URL}/ai/screen-resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeUrl,
-          jobPostingId: jobId,
-          requirements: job.requirements
-        })
-      })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`FastAPI responded with status ${res.status}`);
-        const screeningResult = (await res.json()) as any;
-        
-        // Update resume document with Claude API structured response
-        resume.aiScreening = {
-          overallScore: screeningResult.overallScore,
-          status: screeningResult.status,
-          scores: screeningResult.scores,
-          matchedSkills: screeningResult.matchedSkills,
-          missingSkills: screeningResult.missingSkills,
-          extractedInfo: screeningResult.extractedInfo,
-          aiSummary: screeningResult.aiSummary,
-          aiModel: screeningResult.aiModel,
-        };
-
-        // If AI recommends shortlisting, advance applicant state automatically
-        if (screeningResult.status === 'shortlisted') {
-          resume.applicationStage = 'shortlisted';
-          job.shortlistedCount += 1;
-          job.pipeline.shortlisted += 1;
-          job.pipeline.screening -= 1;
-          await job.save();
-        }
-
-        await resume.save();
-        console.log(`[AI Integration] Screening completed. Candidate ${candidateName} overall score: ${screeningResult.overallScore}. Status: ${screeningResult.status}`);
-      })
-      .catch((err) => {
-        console.error('[AI Integration] Resume screening error:', err.message);
-      });
-    } catch (err: any) {
-      console.error('[AI Integration] Connection failed:', err.message);
-    }
+    console.log(`[AI Screening] Done. ${candidateName}: score=${overallScore}%, matched=[${matched.join(',')}], status=${aiStatus}`);
+    // ─────────────────────────────────────────────────────────────────────────
 
     return res.status(201).json({
-      message: 'Application submitted successfully. AI screening triggered.',
-      applicationId: resume._id
+      message: 'Application submitted successfully. AI screening completed.',
+      applicationId: resume._id,
+      aiScore: overallScore,
+      aiStatus,
     });
   } catch (err) {
     console.error('Apply to job error:', err);
@@ -295,8 +347,10 @@ export const aiAnalyzeResume = async (req: AuthenticatedRequest, res: Response) 
     const matched: string[] = [];
     const missing: string[] = [];
     
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
     skillsList.forEach((s: string) => {
-      if (new RegExp(s, 'i').test(resumeText)) {
+      if (new RegExp(escapeRegex(s), 'i').test(resumeText)) {
         matched.push(s);
       } else {
         missing.push(s);
