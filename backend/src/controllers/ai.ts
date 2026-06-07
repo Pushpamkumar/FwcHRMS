@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { User, Department } from '../models';
+import { User, Department, JobPosting, Resume } from '../models';
 import { pgPool } from '../config/db';
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
@@ -50,6 +50,54 @@ export const chatWithBot = async (req: AuthenticatedRequest, res: Response) => {
         employeeContext.attendanceRate = attendanceRes.rows[0]?.rate 
           ? parseFloat(parseFloat(attendanceRes.rows[0].rate).toFixed(1)) 
           : 100.0;
+
+        // Dynamic Role-based metrics retrieval
+        if (user.role === 'manager') {
+          // Count manager's direct reports' pending leaves
+          const directReports = await User.find({ reportingManagerId: user._id });
+          const directReportEmpIds = directReports.map((r: any) => r.employeeId);
+          if (directReportEmpIds.length > 0) {
+            const pendingLeavesRes = await pgPool.query(
+              "SELECT COUNT(*)::int as count FROM leave_requests WHERE employee_id = ANY($1) AND status = 'pending'",
+              [directReportEmpIds]
+            );
+            employeeContext.pendingLeavesCount = pendingLeavesRes.rows[0]?.count || 0;
+          } else {
+            employeeContext.pendingLeavesCount = 0;
+          }
+
+          // Count manager's candidate offer approvals
+          employeeContext.pendingOffersCount = await Resume.countDocuments({
+            'offerDetails.status': 'pending_manager'
+          });
+        } else if (user.role === 'hr_recruiter') {
+          // Count pending hiring requests
+          const hiringReqs = await pgPool.query(
+            "SELECT COUNT(*)::int as count FROM hiring_requests WHERE status = 'pending'"
+          );
+          employeeContext.pendingHiringRequestsCount = hiringReqs.rows[0]?.count || 0;
+
+          // Count active job openings
+          employeeContext.activeJobsCount = await JobPosting.countDocuments({ status: 'active' });
+
+          // Count total candidates in talent pool
+          employeeContext.totalCandidatesCount = await Resume.countDocuments();
+        } else if (user.role === 'candidate') {
+          // Count candidate's applications
+          employeeContext.candidateAppsCount = await Resume.countDocuments({ candidateId: user._id });
+        } else if (user.role === 'admin') {
+          // Admin metrics
+          const pendingLeavesRes = await pgPool.query(
+            "SELECT COUNT(*)::int as count FROM leave_requests WHERE status = 'pending'"
+          );
+          employeeContext.pendingLeavesCount = pendingLeavesRes.rows[0]?.count || 0;
+
+          const hiringReqs = await pgPool.query(
+            "SELECT COUNT(*)::int as count FROM hiring_requests WHERE status = 'pending'"
+          );
+          employeeContext.pendingHiringRequestsCount = hiringReqs.rows[0]?.count || 0;
+          employeeContext.activeJobsCount = await JobPosting.countDocuments({ status: 'active' });
+        }
       } catch (dbErr) {
         console.warn('[AI Controller] Failed to fetch PG database context for chatbot:', dbErr);
       }
