@@ -163,21 +163,107 @@ def chat(payload: ChatRequest):
       last_user_message = m.content.lower()
       break
 
-  # Simple rule-based mock responses mimicking the HRBot intelligence
-  user_name = payload.employeeContext.get("name", "Employee") if payload.employeeContext else "Employee"
+  # Role extraction
+  role = "candidate"
+  if payload.employeeContext and "role" in payload.employeeContext:
+    role = payload.employeeContext["role"]
   
-  if "leave" in last_user_message:
-    content = f"Hello {user_name}, you have 8 casual leaves, 4 sick leaves, and 12 earned leaves remaining for this calendar year. Would you like me to help you apply for leaves?"
-    data = {"type": "leave_balance", "casual": 8, "sick": 4, "earned": 12}
-  elif "pay" in last_user_message or "salary" in last_user_message:
-    content = f"Your latest payslip for May 2026 was processed on May 31, 2026. The net payout was fully credited to your registered bank account. You can download the PDF in the Payslips section."
-    data = {"type": "salary_status", "month": "May 2026", "status": "Paid"}
-  elif "attendance" in last_user_message:
-    content = f"Your average attendance rate is currently at 94.5%. You have clocked in late 3 times in the last 30 days. Let me know if you need to request regularization."
-    data = {"type": "attendance_summary", "rate": 94.5}
-  else:
-    content = f"Hello {user_name}! I am HRBot, your personal FWC assistant. I can help you check your leave balance, view attendance, query salary slips, or explain company HR policy. What can I do for you today?"
-    data = {"type": "general_help"}
+  user_name = payload.employeeContext.get("name", "User") if payload.employeeContext else "User"
+
+  # Define unauthorized triggers
+  has_payroll_query = any(word in last_user_message for word in ["pay", "salary", "slip", "ctc", "wage", "compensation"])
+  has_leave_query = any(word in last_user_message for word in ["leave", "vacation", "holiday", "time off", "time_off"])
+  has_attendance_query = any(word in last_user_message for word in ["attendance", "clock", "check-in", "check_in", "check out", "check_out", "presence"])
+  has_pipeline_query = any(word in last_user_message for word in ["pipeline", "recruitment", "candidate", "job opening", "interview", "hire", "hiring", "shortlist", "screener"])
+
+  # Restricting responses based on role
+  if role == "candidate":
+    if has_payroll_query or has_leave_query or has_attendance_query:
+      content = "Access Denied: As a candidate, you do not have access to internal payroll, leave balances, or attendance records. You can only ask about job postings, interview procedures, or application stages."
+      data = {"type": "access_denied", "reason": "candidate_restricted"}
+    elif has_pipeline_query or "job" in last_user_message or "apply" in last_user_message or "status" in last_user_message:
+      content = f"Hello {user_name}, as a candidate, you can query job postings and track your application status. Currently, you have 1 active job application. The interview stages are processed using Gemini AI Screening."
+      data = {"type": "candidate_job_info", "application_status": "Shortlisted"}
+    else:
+      content = f"Hello {user_name}! I am HRBot, your candidate assistant. You can ask me about available job roles, interview procedures, or company work location. What would you like to know?"
+      data = {"type": "general_help_candidate"}
+
+  elif role == "employee":
+    if has_pipeline_query:
+      content = "Access Denied: Recruitment pipeline details, job posting creation, and candidate screening are restricted to recruiters and managers only."
+      data = {"type": "access_denied", "reason": "employee_restricted"}
+    elif has_leave_query:
+      casual = 8
+      sick = 4
+      earned = 12
+      if payload.employeeContext and "leaveBalances" in payload.employeeContext:
+        balances = payload.employeeContext["leaveBalances"]
+        for bal in balances:
+          l_type = bal.get("leave_type")
+          l_rem = bal.get("remaining_days", bal.get("total_days", 0))
+          if l_type == "casual": casual = l_rem
+          elif l_type == "sick": sick = l_rem
+          elif l_type == "earned": earned = l_rem
+      content = f"Hello {user_name}, you have {casual} casual leaves, {sick} sick leaves, and {earned} earned leaves remaining for this calendar year. Would you like me to help you apply for leaves?"
+      data = {"type": "leave_balance", "casual": casual, "sick": sick, "earned": earned}
+    elif has_payroll_query:
+      content = f"Your latest payslip for May 2026 was processed on May 31, 2026. The net payout was fully credited to your registered bank account. You can download the PDF in the Payslips section."
+      data = {"type": "salary_status", "month": "May 2026", "status": "Paid"}
+    elif has_attendance_query:
+      rate = payload.employeeContext.get("attendanceRate", 94.5) if payload.employeeContext else 94.5
+      content = f"Your average attendance rate is currently at {rate}%. You can review your daily clock-ins on the dashboard."
+      data = {"type": "attendance_summary", "rate": rate}
+    else:
+      content = f"Hello {user_name}! I am HRBot. You can ask me about your leave balances, view your attendance rates, query your salary payslip status, or check company policy."
+      data = {"type": "general_help_employee"}
+
+  elif role == "manager":
+    if has_payroll_query:
+      content = "Access Denied: Managers cannot access individual employee payroll records via this interface for confidentiality reasons. Please use the Admin Console or contact Finance."
+      data = {"type": "access_denied", "reason": "manager_restricted_payroll"}
+    elif has_leave_query:
+      content = f"Hello {user_name}, you have 3 pending leave approvals from your team members. You can approve them in the dashboard."
+      data = {"type": "manager_team_leaves", "pending_approvals": 3}
+    elif has_attendance_query:
+      content = f"All team members are active today. The attendance rate for your department is currently 96.2%."
+      data = {"type": "manager_team_attendance", "rate": 96.2}
+    elif has_pipeline_query:
+      content = f"As an Engineering Manager, you can request new roles and process candidate offer approvals. You currently have 1 pending candidate offer approval."
+      data = {"type": "manager_recruitment_info", "pending_offers": 1}
+    else:
+      content = f"Hello {user_name}! I am HRBot, your manager assistant. You can ask me about team attendance rates, pending leave approvals, OKR goal status, or candidate offer approvals."
+      data = {"type": "general_help_manager"}
+
+  elif role == "hr_recruiter":
+    if has_payroll_query:
+      content = "Access Denied: Employee payroll details are restricted. Please contact Finance."
+      data = {"type": "access_denied", "reason": "recruiter_restricted_payroll"}
+    elif has_leave_query:
+      content = "Leave balances and approvals are managed in the HR system. You can view your own leaves in the employee view."
+      data = {"type": "recruiter_leaves_info"}
+    elif has_pipeline_query or "job" in last_user_message or "candidate" in last_user_message or "resume" in last_user_message or "screen" in last_user_message:
+      content = f"Hello {user_name}, as a recruiter, you can manage job postings and candidate pipelines. You currently have 4 pending hiring requests from managers."
+      data = {"type": "recruiter_pipeline_info", "pending_hiring_requests": 4}
+    else:
+      content = f"Hello {user_name}! I am HRBot, your recruitment assistant. You can ask me about job openings, candidate screening, resume score distributions, or schedule interviews."
+      data = {"type": "general_help_recruiter"}
+
+  else: # admin / default
+    if has_leave_query:
+      content = f"Hello {user_name}, you have full admin access. Company-wide, there are 7 pending leave requests across all departments."
+      data = {"type": "admin_leaves_summary", "pending_leaves": 7}
+    elif has_payroll_query:
+      content = f"Admin Payroll Summary: May 2026 payroll runs have been processed for all 15 active employees. Total expenditure matches Q2 budget."
+      data = {"type": "admin_payroll_summary", "expenditure": 6500000}
+    elif has_attendance_query:
+      content = f"Company-wide attendance is currently 94.8% for this month. 12 employees are marked present today."
+      data = {"type": "admin_attendance_summary", "attendance_rate": 94.8}
+    elif has_pipeline_query:
+      content = f"Admin Recruitment Status: There are 2 active job postings, 14 total candidate applications, and 4 pending hiring requests."
+      data = {"type": "admin_recruitment_summary", "active_jobs": 2, "total_applications": 14}
+    else:
+      content = f"Hello {user_name}! You are logged in as Admin. I can assist you with system-wide analytics, payroll summary records, attendance heatmaps, or recruitment metrics."
+      data = {"type": "general_help_admin"}
 
   return ChatResponse(content=content, dataFetched=data)
 

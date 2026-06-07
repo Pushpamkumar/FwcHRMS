@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
-import { JobPosting, Resume, Notification, User } from '../models';
+import { JobPosting, Resume, Notification, User, Department } from '../models';
 import jwt from 'jsonwebtoken';
 import { pgPool } from '../config/db';
 import { AuthenticatedRequest } from '../middleware/auth';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
 // ==========================================
 // 1. CREATE JOB POSTING
@@ -716,7 +716,42 @@ export const getHiringRequests = async (req: AuthenticatedRequest, res: Response
       );
     }
 
-    return res.status(200).json(result.rows);
+    const requests = result.rows;
+    const enrichedRequests = await Promise.all(requests.map(async (row) => {
+      let deptName = 'ENG';
+      let deptCode = 'ENG';
+      if (row.department_id) {
+        // Query MongoDB for department details using mongoose
+        try {
+          const dept = await Department.findById(row.department_id);
+          if (dept) {
+            deptName = dept.name;
+            deptCode = dept.code;
+          } else {
+            // Check if department_id is stored as department code (like 'ENG')
+            const deptByCode = await Department.findOne({ code: row.department_id.toUpperCase() });
+            if (deptByCode) {
+              deptName = deptByCode.name;
+              deptCode = deptByCode.code;
+            }
+          }
+        } catch (mongooseErr) {
+          // If department_id is not a valid ObjectId (e.g. is 'ENG'), query by code
+          const deptByCode = await Department.findOne({ code: row.department_id.toUpperCase() });
+          if (deptByCode) {
+            deptName = deptByCode.name;
+            deptCode = deptByCode.code;
+          }
+        }
+      }
+      return {
+        ...row,
+        department_name: deptName,
+        department_code: deptCode
+      };
+    }));
+
+    return res.status(200).json(enrichedRequests);
   } catch (err: any) {
     console.error('Get hiring requests error:', err);
     return res.status(500).json({ message: 'Internal server error.' });

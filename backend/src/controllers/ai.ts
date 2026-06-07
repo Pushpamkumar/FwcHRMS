@@ -3,7 +3,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { User, Department } from '../models';
 import { pgPool } from '../config/db';
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
 export const chatWithBot = async (req: AuthenticatedRequest, res: Response) => {
   try {

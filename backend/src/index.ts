@@ -1,8 +1,9 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import { connectMongo, connectRedis, pgPool } from './config/db';
 import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
@@ -15,8 +16,6 @@ import aiRoutes from './routes/ai';
 import goalRoutes from './routes/goals';
 import taskRoutes from './routes/tasks';
 
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
