@@ -1,96 +1,174 @@
 version: '3.8'
 
+# ─────────────────────────────────────────────────────────────────────────────
+# FWC HRMS - Full Stack Docker Compose
+# Usage: docker compose up -d --build
+# App will be available at: http://localhost:3001
+# ─────────────────────────────────────────────────────────────────────────────
+
 services:
+
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: fwc-hrms-postgres
-    restart: always
+    restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
       POSTGRES_DB: fwc_hrms
     ports:
       - "5435:5432"
     volumes:
       - hrms-postgres-data:/var/lib/postgresql/data
+    networks:
+      - hrms-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d fwc_hrms"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
+  # ─── MongoDB ────────────────────────────────────────────────────────────────
   mongodb:
     image: mongo:6.0
     container_name: fwc-hrms-mongodb
-    restart: always
+    restart: unless-stopped
     ports:
       - "27018:27017"
     volumes:
       - hrms-mongo-data:/data/db
+    networks:
+      - hrms-net
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand({ping:1})' --quiet || mongo --eval 'db.adminCommand({ping:1})' --quiet"]
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand({ping:1})", "--quiet"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 10s
 
+  # ─── Redis ──────────────────────────────────────────────────────────────────
   redis:
     image: redis:7.0-alpine
     container_name: fwc-hrms-redis
-    restart: always
+    restart: unless-stopped
     ports:
       - "6380:6379"
     volumes:
       - hrms-redis-data:/data
+    networks:
+      - hrms-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
+  # ─── AI Microservice (Python FastAPI) ───────────────────────────────────────
   ai-service:
-    build: ./ai-service
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
     container_name: fwc-hrms-ai-service
-    restart: always
+    restart: unless-stopped
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY:-AQ.Ab8RN6JNvfdi2SkMI1QJhoL8U3EB93DplKHZ81PMHsTpAvcyqA}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GOOGLE_API_KEY=${GEMINI_API_KEY:-}
     ports:
       - "8000:8000"
+    networks:
+      - hrms-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
+  # ─── Backend (Node.js Express API) ──────────────────────────────────────────
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: fwc-hrms-backend
-    restart: always
+    restart: unless-stopped
     environment:
       - PORT=5000
       - NODE_ENV=production
-      - JWT_SECRET=supersecretjwtkeyforfwchrms2026
-      - JWT_REFRESH_SECRET=supersecretrefreshjwtkeyforfwchrms2026
+      - FRONTEND_URL=http://localhost:3001
+      # JWT
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkeyforfwchrms2026}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-supersecretrefreshjwtkeyforfwchrms2026}
       - JWT_EXPIRATION=15m
       - JWT_REFRESH_EXPIRATION=7d
+      # MongoDB (use service name as hostname inside Docker network)
       - MONGODB_URI=mongodb://mongodb:27017/fwc_hrms
+      # PostgreSQL
       - PG_HOST=postgres
       - PG_PORT=5432
       - PG_USER=postgres
-      - PG_PASSWORD=postgres
+      - PG_PASSWORD=${PG_PASSWORD:-postgres}
       - PG_DATABASE=fwc_hrms
+      # Redis
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # AI Service
       - AI_SERVICE_URL=http://ai-service:8000
-      - FRONTEND_URL=http://localhost:3001
+      # Admin seed credentials
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@fwcit.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-AdminPassword@2026}
+      # Cloudinary (optional)
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
     ports:
       - "5000:5000"
+    networks:
+      - hrms-net
     depends_on:
       postgres:
         condition: service_healthy
       mongodb:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
+  # ─── Frontend (Next.js) ─────────────────────────────────────────────────────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Baked into the Next.js bundle at build time
+        NEXT_PUBLIC_API_URL: http://localhost:5000/api/v1
     container_name: fwc-hrms-frontend
-    restart: always
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
     ports:
+      # Expose on 3001 on the host (3000 is often taken by other tools like Grafana)
       - "3001:3000"
+    networks:
+      - hrms-net
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
+# ─── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  hrms-net:
+    driver: bridge
+
+# ─── Persistent Volumes ───────────────────────────────────────────────────────
 volumes:
   hrms-postgres-data:
     driver: local

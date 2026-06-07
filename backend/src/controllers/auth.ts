@@ -317,11 +317,12 @@ export const verifyEmail = async (req: Request, res: Response) => {
     await user.save();
 
     // Redirect to login page on the frontend (or display a nice HTML page)
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
     return res.status(200).send(`
       <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
         <h1 style="color: #4caf50;">Email Verification Successful!</h1>
         <p>Your account is now verified. You can proceed to log in to the FWC HRMS application.</p>
-        <a href="http://localhost:3000/login" style="padding: 10px 20px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Login Now</a>
+        <a href="${frontendUrl}/login" style="padding: 10px 20px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Login Now</a>
       </div>
     `);
   } catch (err) {

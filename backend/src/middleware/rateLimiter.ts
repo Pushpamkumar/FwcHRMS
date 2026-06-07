@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { redisClient } from '../config/db';
 
 const LIMIT = 5;
-const WINDOW_SECONDS = 15 * 60; // 15 minutes
+const WINDOW_SECONDS = 60; // 60 seconds
 
 export const authRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
   // Use IP as the rate limit key identifier
@@ -25,9 +25,15 @@ export const authRateLimiter = async (req: Request, res: Response, next: NextFun
 
     if (currentCount > LIMIT) {
       const ttl = await redisClient.ttl(key);
-      const minutesLeft = Math.ceil(ttl / 60);
+      // Cap at WINDOW_SECONDS to handle any stale keys from previous config
+      const secondsLeft = Math.min(ttl > 0 ? ttl : WINDOW_SECONDS, WINDOW_SECONDS);
+      // Reset expiry to the capped value so it's consistent
+      if (ttl > WINDOW_SECONDS) {
+        await redisClient.expire(key, WINDOW_SECONDS);
+      }
       return res.status(429).json({
-        message: `Too many login/register attempts. Please try again after ${minutesLeft} minutes.`,
+        message: `Too many login attempts. Please wait ${secondsLeft} seconds before trying again.`,
+        retryAfter: secondsLeft,
       });
     }
 
