@@ -177,16 +177,19 @@ export const login = async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    const populatedUser = await User.findById(user._id).populate('department', 'name code');
+
     return res.status(200).json({
       accessToken,
       user: {
-        id: user._id,
-        employeeId: user.employeeId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        department: user.department,
+        id: populatedUser._id,
+        employeeId: populatedUser.employeeId,
+        firstName: populatedUser.firstName,
+        lastName: populatedUser.lastName,
+        email: populatedUser.email,
+        role: populatedUser.role,
+        department: populatedUser.department,
+        employmentDetails: populatedUser.employmentDetails,
       }
     });
   } catch (err: any) {
@@ -230,16 +233,19 @@ export const refresh = async (req: Request, res: Response) => {
 
     const accessToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXP });
 
+    const populatedUser = await User.findById(user._id).populate('department', 'name code');
+
     return res.status(200).json({
       accessToken,
       user: {
-        id: user._id,
-        employeeId: user.employeeId,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        department: user.department,
+        id: populatedUser._id,
+        employeeId: populatedUser.employeeId,
+        firstName: populatedUser.firstName,
+        lastName: populatedUser.lastName,
+        email: populatedUser.email,
+        role: populatedUser.role,
+        department: populatedUser.department,
+        employmentDetails: populatedUser.employmentDetails,
       }
     });
   } catch (err) {

@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS leave_balances (
   total_days      DECIMAL(5,2) NOT NULL,
   used_days       DECIMAL(5,2) DEFAULT 0,
   pending_days    DECIMAL(5,2) DEFAULT 0,
-  remaining_days  DECIMAL(5,2) GENERATED ALWAYS AS (total_days - used_days - pending_days) STORED,
+  remaining_days  DECIMAL(5,2) GENERATED ALWAYS AS (total_days - used_days) STORED,
   carried_forward DECIMAL(5,2) DEFAULT 0,
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(employee_id, year, leave_type)
@@ -238,5 +238,18 @@ CREATE TABLE IF NOT EXISTS interviews (
   status          VARCHAR(20) DEFAULT 'scheduled',
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 15. Tasks Table
+CREATE TABLE IF NOT EXISTS tasks (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_id     VARCHAR(20) NOT NULL,
+  assigned_by     VARCHAR(20) NOT NULL,
+  text            VARCHAR(500) NOT NULL,
+  completed       BOOLEAN DEFAULT FALSE,
+  status          VARCHAR(20) DEFAULT 'review', -- 'done', 'review', 'overdue'
+  due_date        DATE,
+  created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
 
 

@@ -668,3 +668,90 @@ export const getPendingOffers = async (req: AuthenticatedRequest, res: Response)
     return res.status(500).json({ message: 'Internal server error.' });
   }
 };
+
+// ==========================================
+// 15. CREATE HIRING REQUEST (Manager only)
+// ==========================================
+export const createHiringRequest = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { title, count, description } = req.body;
+    const managerId = req.user?.employeeId;
+    const managerName = req.user ? `${req.user.firstName} ${req.user.lastName}` : 'Manager';
+    const departmentId = req.user?.department ? req.user.department.toString() : 'ENG';
+
+    if (!title || !count) {
+      return res.status(400).json({ message: 'Job title and headcount are required.' });
+    }
+
+    const result = await pgPool.query(`
+      INSERT INTO hiring_requests (manager_id, manager_name, department_id, job_title, headcount, description, status)
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      RETURNING *
+    `, [managerId, managerName, departmentId, title, count, description]);
+
+    return res.status(201).json({
+      message: 'Hiring request submitted successfully.',
+      hiringRequest: result.rows[0]
+    });
+  } catch (err: any) {
+    console.error('Create hiring request error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+// ==========================================
+// 16. GET HIRING REQUESTS (Manager / Recruiter / Admin)
+// ==========================================
+export const getHiringRequests = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { role, employeeId } = req.user || {};
+
+    let result;
+    if (role === 'hr_recruiter' || role === 'admin') {
+      result = await pgPool.query('SELECT * FROM hiring_requests ORDER BY created_at DESC');
+    } else {
+      result = await pgPool.query(
+        'SELECT * FROM hiring_requests WHERE manager_id = $1 ORDER BY created_at DESC',
+        [employeeId]
+      );
+    }
+
+    return res.status(200).json(result.rows);
+  } catch (err: any) {
+    console.error('Get hiring requests error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+// ==========================================
+// 17. UPDATE HIRING REQUEST STATUS (Recruiter / Admin only)
+// ==========================================
+export const updateHiringRequestStatus = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; // approved, rejected
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status. Must be approved or rejected.' });
+    }
+
+    const result = await pgPool.query(`
+      UPDATE hiring_requests
+      SET status = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `, [status, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Hiring request not found.' });
+    }
+
+    return res.status(200).json({
+      message: `Hiring request has been ${status}.`,
+      hiringRequest: result.rows[0]
+    });
+  } catch (err: any) {
+    console.error('Update hiring request status error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};

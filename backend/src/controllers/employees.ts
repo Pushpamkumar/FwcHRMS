@@ -711,14 +711,14 @@ export const getAdminStats = async (req: Request, res: Response) => {
 
     // 8. Attendance Heatmap
     const heatmapRes = await pgPool.query(`
-      SELECT date, COUNT(*) as count 
+      SELECT date::text as date_str, COUNT(*) as count 
       FROM attendance 
       WHERE EXTRACT(YEAR FROM date) = $1 AND status IN ('present', 'work_from_home', 'late')
       GROUP BY date
       ORDER BY date ASC
     `, [currentYear]);
     const attendanceHeatmap = heatmapRes.rows.map(r => ({
-      date: r.date.toISOString().split('T')[0],
+      date: r.date_str,
       count: parseInt(r.count, 10)
     }));
 
@@ -941,18 +941,60 @@ export const getBadgeCounts = async (req: AuthenticatedRequest, res: Response) =
       );
       pendingLeaves = parseInt(leavesRes.rows[0].count, 10);
     }
+
+    // 2. Pending Timesheets
+    let pendingTimesheets = 0;
+    if (employeeIds.length > 0) {
+      const timesheetsRes = await pgPool.query(
+        "SELECT COUNT(*) FROM timesheets WHERE employee_id = ANY($1) AND status = 'pending'",
+        [employeeIds]
+      );
+      pendingTimesheets = parseInt(timesheetsRes.rows[0].count, 10);
+    } else if (req.user.role === 'admin') {
+      const timesheetsRes = await pgPool.query(
+        "SELECT COUNT(*) FROM timesheets WHERE status = 'pending'"
+      );
+      pendingTimesheets = parseInt(timesheetsRes.rows[0].count, 10);
+    }
+
+    // 3. Pending Escalations
+    let pendingEscalations = 0;
+    if (employeeIds.length > 0) {
+      const escalationsRes = await pgPool.query(
+        "SELECT COUNT(*) FROM escalations WHERE employee_id = ANY($1) AND status = 'pending'",
+        [employeeIds]
+      );
+      pendingEscalations = parseInt(escalationsRes.rows[0].count, 10);
+    } else if (req.user.role === 'admin') {
+      const escalationsRes = await pgPool.query(
+        "SELECT COUNT(*) FROM escalations WHERE status = 'pending'"
+      );
+      pendingEscalations = parseInt(escalationsRes.rows[0].count, 10);
+    }
     
-    // 2. Recruiter active jobs and total candidates
+    // 4. Recruiter active jobs and total candidates
     const activeJobs = await require('../models').JobPosting.countDocuments({ status: 'active' });
     const totalCandidates = await require('../models').Resume.countDocuments({});
     
+    // 5. AI Screener Candidates (overallScore >= 75)
+    const aiScreener = await require('../models').Resume.countDocuments({
+      'aiScreening.overallScore': { $gte: 75 }
+    });
+
+    // 6. Pending Hiring Requests (Recruiter / Admin)
+    const hiringRequestsRes = await pgPool.query(
+      "SELECT COUNT(*) FROM hiring_requests WHERE status = 'pending'"
+    );
+    const pendingHiringRequests = parseInt(hiringRequestsRes.rows[0].count, 10);
+    
     return res.status(200).json({
-      pendingLeaves: pendingLeaves || 4,
-      timesheets: 6,
-      escalations: 2,
-      aiScreener: 12,
-      activeJobs: activeJobs || 24,
-      totalCandidates: totalCandidates || 148
+      pendingLeaves,
+      timesheets: pendingTimesheets,
+      escalations: pendingEscalations,
+      aiScreener,
+      activeJobs,
+      totalCandidates,
+      pendingHiringRequests
     });
   } catch (err) {
     console.error('Get badge counts error:', err);

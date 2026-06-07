@@ -15,11 +15,12 @@ export const checkIn = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized.' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use IST timezone to get the correct local date (avoids UTC offset issues)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
     // Check if already checked in today
     const checkRes = await pgPool.query(
-      'SELECT id FROM attendance WHERE employee_id = $1 AND date = $2',
+      "SELECT id FROM attendance WHERE employee_id = $1 AND date::text = $2",
       [employeeId, today]
     );
 
@@ -28,19 +29,29 @@ export const checkIn = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const checkInTime = new Date();
-    // Mark as late if after 9:15 AM (9.25 hours)
-    const currentHour = checkInTime.getHours() + checkInTime.getMinutes() / 60;
-    const status = currentHour > 9.25 ? 'late' : 'present';
+    // Entry point: 9:00 AM. Grace period until 9:10 AM.
+    // present  → 9:00–9:10 AM
+    // late     → after 9:10 AM
+    const totalMinutes = checkInTime.getHours() * 60 + checkInTime.getMinutes();
+    const graceCutoffMinutes = 9 * 60 + 10; // 9:10 AM = 550 minutes
+    const lateByMinutes = Math.max(0, totalMinutes - graceCutoffMinutes);
+    const status = totalMinutes > graceCutoffMinutes ? 'late' : 'present';
 
     const insertRes = await pgPool.query(`
       INSERT INTO attendance (
         employee_id, date, check_in, check_in_ip, check_in_location, status
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING *
+      ) VALUES ($1, $2::date, $3, $4, $5, $6)
+      RETURNING id, employee_id, date::text as date, check_in, check_out, status, total_hours, notes
     `, [employeeId, today, checkInTime, ip, location ? JSON.stringify(location) : null, status]);
 
+    const message = status === 'late'
+      ? `Clock-in recorded. You are late by ${lateByMinutes} minute${lateByMinutes !== 1 ? 's' : ''}.`
+      : 'Clock-in recorded successfully. You are on time!';
+
     return res.status(200).json({
-      message: 'Clock-in recorded successfully.',
+      message,
+      status,
+      lateByMinutes: status === 'late' ? lateByMinutes : 0,
       record: insertRes.rows[0],
     });
   } catch (err: any) {
@@ -62,11 +73,12 @@ export const checkOut = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ message: 'Unauthorized.' });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use IST timezone to get the correct local date (avoids UTC offset issues)
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
     // Get today's check-in record
     const checkRes = await pgPool.query(
-      'SELECT id, check_in FROM attendance WHERE employee_id = $1 AND date = $2 LIMIT 1',
+      "SELECT id, check_in FROM attendance WHERE employee_id = $1 AND date::text = $2 LIMIT 1",
       [employeeId, today]
     );
 
@@ -93,7 +105,7 @@ export const checkOut = async (req: AuthenticatedRequest, res: Response) => {
         check_out_location = $3,
         total_hours = $4
       WHERE id = $5
-      RETURNING *
+      RETURNING id, employee_id, date::text as date, check_in, check_out, status, total_hours, notes
     `, [checkOutTime, ip, location ? JSON.stringify(location) : null, totalHours, record.id]);
 
     return res.status(200).json({
@@ -118,7 +130,7 @@ export const getMyHistory = async (req: AuthenticatedRequest, res: Response) => 
     }
 
     const result = await pgPool.query(
-      'SELECT * FROM attendance WHERE employee_id = $1 ORDER BY date DESC LIMIT 30',
+      "SELECT id, employee_id, date::text as date, check_in, check_out, status, total_hours, notes FROM attendance WHERE employee_id = $1 ORDER BY date DESC LIMIT 30",
       [employeeId]
     );
 

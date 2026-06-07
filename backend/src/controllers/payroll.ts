@@ -132,23 +132,8 @@ export const runPayroll = async (req: AuthenticatedRequest, res: Response) => {
 
     console.log(`[Payroll] Triggering payroll run for ${month}/${year}...`);
 
-    // If BullMQ queue is active and Redis is running, enqueue job
-    if (payrollQueue && redisClient.isOpen) {
-      const job = await payrollQueue.add('processPayrollJob', {
-        month: parseInt(month),
-        year: parseInt(year),
-        triggeredBy: req.user?.employeeId || 'SYSTEM'
-      });
-
-      return res.status(200).json({
-        message: 'Payroll run queued in background task.',
-        jobId: job.id,
-        async: true
-      });
-    }
-
-    // Direct synchronous execution fallback (if redis is down or queues disabled)
-    console.log('[Payroll] Running payroll synchronously (fallback mode)...');
+    // Always run payroll synchronously so the client gets the processed runs immediately
+    console.log('[Payroll] Running payroll synchronously...');
     
     // Fetch all active employees in MongoDB
     const employees = await User.find({ isActive: true }, 'employeeId');
@@ -276,6 +261,28 @@ export const getPayslipUrl = async (req: AuthenticatedRequest, res: Response) =>
     });
   } catch (err) {
     console.error('Get payslip error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+// ==========================================
+// 5. GET MONTHLY PAYROLL RUNS (Admin)
+// ==========================================
+export const getMonthlyRuns = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { month, year } = req.params;
+    if (!month || !year) {
+      return res.status(400).json({ message: 'month and year are required params.' });
+    }
+
+    const runsRes = await pgPool.query(
+      'SELECT * FROM payroll_runs WHERE month = $1 AND year = $2',
+      [parseInt(month), parseInt(year)]
+    );
+
+    return res.status(200).json(runsRes.rows);
+  } catch (err) {
+    console.error('Get monthly runs error:', err);
     return res.status(500).json({ message: 'Internal server error.' });
   }
 };

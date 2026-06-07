@@ -13,6 +13,8 @@ import leaveRoutes from './routes/leaves';
 import recruitmentRoutes from './routes/recruitment';
 import aiRoutes from './routes/ai';
 import goalRoutes from './routes/goals';
+import taskRoutes from './routes/tasks';
+
 
 dotenv.config();
 
@@ -79,6 +81,8 @@ app.use('/api/v1/leaves', leaveRoutes);
 app.use('/api/v1/recruitment', recruitmentRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/goals', goalRoutes);
+app.use('/api/v1/tasks', taskRoutes);
+
 
 // Base health endpoint
 app.get('/health', async (req: Request, res: Response) => {

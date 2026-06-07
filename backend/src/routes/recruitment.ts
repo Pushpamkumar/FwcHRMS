@@ -14,6 +14,9 @@ import {
   markNotificationAsRead,
   processOfferCandidate,
   getPendingOffers,
+  createHiringRequest,
+  getHiringRequests,
+  updateHiringRequestStatus,
 } from '../controllers/recruitment';
 import { authenticateJWT, roleGuard } from '../middleware/auth';
 
@@ -44,5 +47,10 @@ router.post('/applications/:id/schedule-meet', authenticateJWT, roleGuard('admin
 // Manager actions
 router.get('/pending-offers', authenticateJWT, roleGuard('admin', 'manager'), getPendingOffers);
 router.post('/applications/:id/process-offer', authenticateJWT, roleGuard('admin', 'manager'), processOfferApproval);
+
+// Hiring Requests
+router.post('/hiring-requests', authenticateJWT, roleGuard('admin', 'manager'), createHiringRequest);
+router.get('/hiring-requests', authenticateJWT, roleGuard('admin', 'manager', 'hr_recruiter'), getHiringRequests);
+router.put('/hiring-requests/:id/status', authenticateJWT, roleGuard('admin', 'hr_recruiter'), updateHiringRequestStatus);
 
 export default router;
