@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: fwc-hrms-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fwc_hrms
+    ports:
+      - "5435:5432"
+    volumes:
+      - hrms-postgres-data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:6.0
+    container_name: fwc-hrms-mongodb
+    restart: always
+    ports:
+      - "27018:27017"
+    volumes:
+      - hrms-mongo-data:/data/db
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: fwc-hrms-redis
+    restart: always
+    ports:
+      - "6380:6379"
+    volumes:
+      - hrms-redis-data:/data
+
+volumes:
+  hrms-postgres-data:
+    driver: local
+  hrms-mongo-data:
+    driver: local
+  hrms-redis-data:
+    driver: local
