@@ -13,6 +13,11 @@ services:
       - "5435:5432"
     volumes:
       - hrms-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fwc_hrms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   mongodb:
     image: mongo:6.0
@@ -22,6 +27,11 @@ services:
       - "27018:27017"
     volumes:
       - hrms-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --eval 'db.adminCommand({ping:1})' --quiet || mongo --eval 'db.adminCommand({ping:1})' --quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7.0-alpine
@@ -31,6 +41,55 @@ services:
       - "6380:6379"
     volumes:
       - hrms-redis-data:/data
+
+  ai-service:
+    build: ./ai-service
+    container_name: fwc-hrms-ai-service
+    restart: always
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-AQ.Ab8RN6JNvfdi2SkMI1QJhoL8U3EB93DplKHZ81PMHsTpAvcyqA}
+    ports:
+      - "8000:8000"
+
+  backend:
+    build: ./backend
+    container_name: fwc-hrms-backend
+    restart: always
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+      - JWT_SECRET=supersecretjwtkeyforfwchrms2026
+      - JWT_REFRESH_SECRET=supersecretrefreshjwtkeyforfwchrms2026
+      - JWT_EXPIRATION=15m
+      - JWT_REFRESH_EXPIRATION=7d
+      - MONGODB_URI=mongodb://mongodb:27017/fwc_hrms
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=postgres
+      - PG_PASSWORD=postgres
+      - PG_DATABASE=fwc_hrms
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_SERVICE_URL=http://ai-service:8000
+      - FRONTEND_URL=http://localhost:3001
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: fwc-hrms-frontend
+    restart: always
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
 
 volumes:
   hrms-postgres-data:

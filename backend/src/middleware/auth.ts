@@ -8,6 +8,8 @@ export interface AuthUser {
   email: string;
   role: 'admin' | 'manager' | 'hr_recruiter' | 'employee' | 'candidate';
   department?: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface AuthenticatedRequest extends Request {
