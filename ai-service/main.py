@@ -233,7 +233,7 @@ Guidelines:
 5. Answer in a professional conversational manner. Keep answers concise.
 """
       model = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-2.5-flash",
         system_instruction=system_instruction
       )
 
