@@ -1,0 +1,446 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020105;
+  --foreground: #f0f0f8;
+  --accent: #e8ff47;
+  --blue: #38bdf8;
+  --orange: #f97316;
+  --pink: #ec4899;
+  
+  --font-head: var(--font-head), 'Plus Jakarta Sans', sans-serif;
+  --font-body: var(--font-body), 'Inter', sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-head);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #020105;
+    --foreground: #f0f0f8;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6, .logo-text, .font-sans {
+  font-family: var(--font-head), sans-serif !important;
+}
+
+/* ==========================================================================
+   TASKFLOW PREMIUM STAT CARDS DECORATIONS (Dark Theme default)
+   ========================================================================== */
+div.grid-cols-1 > div.bg-white\/\[0\.01\],
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\] {
+  position: relative !important;
+  overflow: hidden !important;
+  background-color: #110f18 !important;
+  border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Hover popup scale transitions */
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:hover,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:hover {
+  transform: translateY(-6px) scale(1.02) !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.75), 0 0 30px rgba(232, 255, 71, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Decorative circles top-right */
+div.grid-cols-1 > div.bg-white\/\[0\.01\]::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -45px !important;
+  right: -45px !important;
+  width: 130px !important;
+  height: 130px !important;
+  border-radius: 50% !important;
+  opacity: 0.12 !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  transition: transform 0.4s ease !important;
+}
+
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:hover::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:hover::before {
+  transform: scale(1.1) !important;
+}
+
+/* Arc Color Distribution */
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+1)::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+1)::before {
+  background: var(--accent) !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+2)::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+2)::before {
+  background: var(--blue) !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+3)::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+3)::before {
+  background: var(--orange) !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+4)::before,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+4)::before {
+  background: var(--pink) !important;
+}
+
+/* Bold colored value tags inside stats cards */
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+1) .text-2xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+1) .text-3xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+1) .text-4xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+1) .text-2xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+1) .text-3xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+1) .text-4xl {
+  color: var(--accent) !important;
+  font-family: var(--font-head) !important;
+  font-weight: 800 !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+2) .text-2xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+2) .text-3xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+2) .text-4xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+2) .text-2xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+2) .text-3xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+2) .text-4xl {
+  color: var(--blue) !important;
+  font-family: var(--font-head) !important;
+  font-weight: 800 !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+3) .text-2xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+3) .text-3xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+3) .text-4xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+3) .text-2xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+3) .text-3xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+3) .text-4xl {
+  color: var(--orange) !important;
+  font-family: var(--font-head) !important;
+  font-weight: 800 !important;
+}
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+4) .text-2xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+4) .text-3xl,
+div.grid-cols-1 > div.bg-white\/\[0\.01\]:nth-child(4n+4) .text-4xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+4) .text-2xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+4) .text-3xl,
+div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:nth-child(4n+4) .text-4xl {
+  color: var(--pink) !important;
+  font-family: var(--font-head) !important;
+  font-weight: 800 !important;
+}
+
+/* ==========================================================================
+   TASKFLOW SIDEBAR HIGHLIGHT SELECTORS
+   ========================================================================== */
+.sidebar-nav-item.active {
+  background: rgba(232, 255, 71, 0.12) !important;
+  color: var(--accent) !important;
+  border-left: 3px solid var(--accent) !important;
+  font-family: var(--font-head) !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+.sidebar-nav-item.active svg {
+  color: var(--accent) !important;
+}
+
+/* Brand header styling */
+.sidebar-brand-header .logo-text {
+  font-family: var(--font-head) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.3px !important;
+}
+
+/* General box transition backup */
+.bg-white\/5,
+.bg-white\/10,
+.border-white\/5,
+.border-white\/10,
+.rounded-2xl,
+.rounded-xl,
+.shadow-xl,
+.shadow-lg {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
+              background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.bg-white\/5:hover,
+.bg-white\/10:hover,
+.shadow-xl:hover,
+.shadow-lg:hover {
+  transform: translateY(-5px) scale(1.015) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.65), 0 0 25px rgba(99, 102, 241, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ==========================================================================
+   LIGHT THEME OVERRIDES (Day Mode)
+   ========================================================================== */
+:root.light-theme,
+body.light-theme {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --accent: #4f46e5;
+  --blue: #0284c7;
+  --orange: #c2410c;
+  --pink: #be185d;
+}
+
+.light-theme body {
+  background-color: #f8fafc !important;
+  background-image: none !important;
+  color: #0f172a !important;
+}
+
+/* Sidebar Overrides in Light Theme */
+.light-theme aside {
+  background-color: #ffffff !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+.light-theme aside .border-b {
+  border-color: #e2e8f0 !important;
+}
+.light-theme aside .sidebar-nav-item {
+  color: #475569 !important;
+}
+.light-theme aside .sidebar-nav-item svg {
+  color: #64748b !important;
+}
+.light-theme aside .sidebar-nav-item:hover {
+  color: #0f172a !important;
+  background-color: #f1f5f9 !important;
+}
+.light-theme aside .sidebar-nav-item.active {
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  color: #4f46e5 !important;
+  border-left: 3px solid #4f46e5 !important;
+}
+.light-theme aside .sidebar-nav-item.active svg {
+  color: #4f46e5 !important;
+}
+.light-theme aside .text-white {
+  color: #0f172a !important;
+}
+
+/* Main Area Overrides */
+.light-theme .main,
+.light-theme main.flex-1 {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+.light-theme header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Search bar overrides */
+.light-theme .bg-white\/\[0\.02\] {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+.light-theme .bg-white\/\[0\.02\] input {
+  color: #0f172a !important;
+}
+.light-theme .bg-white\/\[0\.02\] input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Stats Cards in Light Theme */
+.light-theme div.grid-cols-1 > div.bg-white\/\[0\.01\],
+.light-theme div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\] {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03) !important;
+}
+
+.light-theme div.grid-cols-1 > div.bg-white\/\[0\.01\]:hover,
+.light-theme div.grid-cols-1 > div.relative.overflow-hidden.bg-white\/\[0\.01\]:hover {
+  transform: translateY(-5px) scale(1.015) !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.04), 0 0 15px rgba(99, 102, 241, 0.04) !important;
+  border-color: rgba(79, 70, 229, 0.2) !important;
+}
+
+/* General font weight improvements in light theme */
+.light-theme font-black,
+.light-theme .font-bold {
+  font-weight: 700 !important;
+}
+
+/* Texts overrides in light theme */
+.light-theme .text-white {
+  color: #0f172a !important;
+}
+.light-theme .text-slate-300,
+.light-theme .text-slate-400,
+.light-theme .text-slate-500,
+.light-theme .text-indigo-200\/90,
+.light-theme .text-indigo-200\/40,
+.light-theme .text-indigo-300\/40,
+.light-theme .text-indigo-200\/50 {
+  color: #475569 !important;
+}
+.light-theme .text-indigo-400,
+.light-theme .text-indigo-300 {
+  color: #4f46e5 !important;
+}
+
+/* Chatbot panel override in light theme */
+.light-theme .bg-\[\#090514\]\/95 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08) !important;
+}
+.light-theme .text-indigo-200\/90 {
+  color: #1e293b !important;
+}
+.light-theme .bg-white\/\[0\.02\] {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+/* Note: .bg-[#020105]/20 uses Tailwind bracket syntax and cannot be used as a plain CSS selector in PostCSS.
+   The equivalent light-theme style is covered by .light-theme .bg-white\/\[0\.02\] above. */
+.light-theme .text-white.block.leading-tight {
+  color: #0f172a !important;
+}
+
+/* Form input fields overrides */
+.light-theme input, 
+.light-theme textarea, 
+.light-theme select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+.light-theme input:focus, 
+.light-theme textarea:focus, 
+.light-theme select:focus {
+  border-color: #4f46e5 !important;
+}
+.light-theme input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================================
+   LANDING PAGE ANIMATIONS & MARQUEE CARDS
+   ========================================================================== */
+
+/* Main Title animations */
+@keyframes titleFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(-0.5deg);
+  }
+}
+
+@keyframes flipFlop {
+  0% {
+    transform: perspective(600px) rotateX(0deg) rotateY(0deg);
+  }
+  25% {
+    transform: perspective(600px) rotateX(8deg) rotateY(-4deg);
+  }
+  50% {
+    transform: perspective(600px) rotateX(-8deg) rotateY(4deg);
+  }
+  75% {
+    transform: perspective(600px) rotateX(4deg) rotateY(-8deg);
+  }
+  100% {
+    transform: perspective(600px) rotateX(0deg) rotateY(0deg);
+  }
+}
+
+.title-animate {
+  display: inline-block;
+  animation: titleFloat 6s ease-in-out infinite;
+  transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1.1);
+  transform-style: preserve-3d;
+}
+
+.title-animate:hover {
+  animation: flipFlop 3s ease-in-out infinite;
+  transform: scale(1.06) translateZ(15px);
+  text-shadow: 0 10px 30px rgba(99, 102, 241, 0.4), 0 0 20px rgba(168, 85, 247, 0.3);
+  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 50%, #e9d5ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Badge pulse/float animation */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.1), inset 0 0 10px rgba(99, 102, 241, 0.1);
+    transform: translateY(0);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.25), inset 0 0 15px rgba(99, 102, 241, 0.2);
+    transform: translateY(-2px);
+  }
+}
+
+.badge-animated {
+  animation: pulseGlow 4s ease-in-out infinite;
+}
+
+/* Loop marquee layout */
+.marquee-container {
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  position: relative;
+  mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, white 15%, white 85%, transparent);
+  padding: 10px 0;
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marqueeScroll 28s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.marquee-content {
+  display: flex;
+  flex-shrink: 0;
+}
+
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+/* Custom premium styling for marquee cards */
+.marquee-card {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.marquee-card:hover {
+  transform: translateY(-10px) scale(1.03) !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65), 0 0 25px rgba(99, 102, 241, 0.15) !important;
+}
