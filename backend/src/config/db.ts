@@ -60,7 +60,12 @@ const REDIS_URL = process.env.REDIS_PASSWORD
   : `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`;
 export const redisClient = createClient({
   url: REDIS_URL,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+  },
+  disableOfflineQueue: true,
 });
+
 
 redisClient.on('connect', () => {
   console.log('[Redis] Connecting client to Redis...');
