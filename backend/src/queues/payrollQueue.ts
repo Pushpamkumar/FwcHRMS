@@ -2,10 +2,13 @@ import { Worker, Job } from 'bullmq';
 import { pgPool } from '../config/db';
 import { User } from '../models';
 
-const REDIS_CONNECTION_OPTS = {
+const REDIS_CONNECTION_OPTS: any = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6380'),
 };
+if (process.env.REDIS_PASSWORD) {
+  REDIS_CONNECTION_OPTS.password = process.env.REDIS_PASSWORD;
+}
 
 export const startPayrollWorker = () => {
   try {

@@ -55,7 +55,9 @@ pgPool.on('error', (err) => {
 // ==========================================
 // 3. REDIS CONNECTION SETUP
 // ==========================================
-const REDIS_URL = `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`;
+const REDIS_URL = process.env.REDIS_PASSWORD
+  ? `redis://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+  : `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`;
 export const redisClient = createClient({
   url: REDIS_URL,
 });
