@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { connectMongo, connectRedis, pgPool } from './config/db';
+import { autoInitialize } from './db/auto-init';
 import authRoutes from './routes/auth';
 import employeeRoutes from './routes/employees';
 import payrollRoutes from './routes/payroll';
@@ -137,6 +138,11 @@ const startServer = async () => {
 
     // Start BullMQ Worker
     startPayrollWorker();
+
+    // Run DB schema init & seeding in the background — non-blocking
+    autoInitialize().catch((err) => {
+      console.error('[Server] Background DB initialization failed (non-fatal):', err);
+    });
 
     app.listen(PORT, () => {
       console.log(`[Server] Express API is running at http://localhost:${PORT}`);

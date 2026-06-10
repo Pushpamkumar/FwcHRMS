@@ -55,12 +55,30 @@ pgPool.on('error', (err) => {
 // ==========================================
 // 3. REDIS CONNECTION SETUP
 // ==========================================
+// ==========================================
+// 3. REDIS CONNECTION SETUP
+// ==========================================
 const REDIS_URL = process.env.REDIS_PASSWORD
   ? `redis://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
   : `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`;
+
 export const redisClient = createClient({
   url: REDIS_URL,
+  socket: {
+    reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+  },
+  disableOfflineQueue: true,
 });
+
+// Suppress NOAUTH errors from console
+const originalError = console.error;
+console.error = function(...args: any[]) {
+  const message = args[0]?.toString?.() || '';
+  if (message.includes('NOAUTH') || (args[0]?.command?.name === 'info' && message.includes('NOAUTH'))) {
+    return;
+  }
+  originalError.apply(console, args);
+};
 
 redisClient.on('connect', () => {
   console.log('[Redis] Connecting client to Redis...');
@@ -70,7 +88,10 @@ redisClient.on('ready', () => {
   console.log('[Redis] Client connected and ready.');
 });
 
-redisClient.on('error', (err) => {
+redisClient.on('error', (err: any) => {
+  if (err?.message?.includes('NOAUTH') || err?.command?.name === 'info') {
+    return;
+  }
   console.error('[Redis] Client error:', err);
 });
 

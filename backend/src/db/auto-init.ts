@@ -4,7 +4,7 @@ import { User } from '../models';
 import { initPostgres } from './init';
 import { seedDatabase } from './seed';
 
-const autoInitialize = async () => {
+export const autoInitialize = async () => {
   try {
     console.log('[Auto-Init] Starting database initialization check...');
 
@@ -28,19 +28,26 @@ const autoInitialize = async () => {
     }
 
     console.log('[Auto-Init] Database check and initialization completed successfully.');
-    
-    // Close connections
-    await mongoose.disconnect();
-    await pgPool.end();
-    process.exit(0);
   } catch (err) {
     console.error('[Auto-Init] Error during database initialization check:', err);
-    try {
-      await mongoose.disconnect();
-      await pgPool.end();
-    } catch {}
-    process.exit(1);
+    throw err;
   }
 };
 
-autoInitialize();
+// Only self-execute when run directly as a standalone script
+if (require.main === module) {
+  autoInitialize()
+    .then(async () => {
+      await mongoose.disconnect();
+      await pgPool.end();
+      process.exit(0);
+    })
+    .catch(async (err) => {
+      console.error('[Auto-Init] Fatal error:', err);
+      try {
+        await mongoose.disconnect();
+        await pgPool.end();
+      } catch {}
+      process.exit(1);
+    });
+}
