@@ -6,13 +6,14 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../lib/api';
 import Sidebar from '../../components/shared/Sidebar';
 import ChatBot from '../../components/ai/ChatBot';
-import { Loader2, Bell, Search, Sun, Moon } from 'lucide-react';
+import { Loader2, Bell, Search, Sun, Moon, Menu } from 'lucide-react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { initializeAuth, isAuthenticated, isLoading, user } = useAuthStore();
 
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -24,6 +25,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       document.documentElement.classList.remove('light-theme');
       document.body.classList.remove('light-theme');
     }
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const toggleTheme = () => {
@@ -121,22 +135,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex bg-[#020105] text-white overflow-hidden">
       {/* Sidebar Navigation */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content Pane */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         
         {/* Top Header Navigation */}
-        <header className="h-16 border-b border-white/[0.05] bg-[#090514]/40 backdrop-blur-md px-8 flex items-center justify-between z-20 shrink-0">
+        <header className="h-16 border-b border-white/[0.05] bg-[#090514]/40 backdrop-blur-md px-4 lg:px-8 flex items-center justify-between z-20 shrink-0">
           
-          {/* Left search mock */}
-          <div className="flex items-center space-x-3 w-72 bg-white/[0.02] border border-white/[0.05] rounded-xl px-3 py-1.5 focus-within:border-indigo-500 transition-colors">
-            <Search className="h-4 w-4 text-indigo-200/30" />
-            <input
-              type="text"
-              placeholder="Search employee directory..."
-              className="bg-transparent border-none focus:outline-none text-xs text-white placeholder-indigo-200/20 w-full"
-            />
+          <div className="flex items-center space-x-3">
+            {/* Menu Toggle Button - only shows when sidebar is closed */}
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 text-indigo-300/50 hover:text-white hover:bg-white/5 rounded-xl transition-all border border-transparent mr-1"
+                aria-label="Toggle Sidebar"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* Left search mock */}
+            <div className="hidden sm:flex items-center space-x-3 w-48 md:w-72 bg-white/[0.02] border border-white/[0.05] rounded-xl px-3 py-1.5 focus-within:border-indigo-500 transition-colors">
+              <Search className="h-4 w-4 text-indigo-200/30" />
+              <input
+                type="text"
+                placeholder="Search employee directory..."
+                className="bg-transparent border-none focus:outline-none text-xs text-white placeholder-indigo-200/20 w-full"
+              />
+            </div>
           </div>
 
           {/* Right Controls */}
@@ -225,7 +252,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Dynamic Page content */}
-        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-[#06040c] via-[#020105] to-[#04020a] p-8">
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-[#06040c] via-[#020105] to-[#04020a] p-4 lg:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

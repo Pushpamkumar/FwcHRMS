@@ -169,11 +169,13 @@ export const login = async (req: Request, res: Response) => {
     }
     await user.save();
 
+    const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_STATIC_URL;
+
     // Set refreshToken cookie
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'strict',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -273,10 +275,12 @@ export const logout = async (req: Request, res: Response) => {
       }
     }
 
+    const isProd = process.env.NODE_ENV === 'production' || !!process.env.RAILWAY_STATIC_URL;
+
     res.clearCookie(REFRESH_COOKIE_NAME, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: isProd,
+      sameSite: isProd ? 'none' : 'strict',
     });
 
     return res.status(200).json({ message: 'Logged out successfully.' });

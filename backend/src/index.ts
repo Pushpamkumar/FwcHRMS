@@ -46,7 +46,7 @@ app.use((req: any, res, next) => {
 app.use(helmet());
 app.use(morgan('dev'));
 
-// CORS configuration to allow local frontend requests with credentials on any local port
+// CORS configuration to allow local and deployed frontend requests with credentials
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
   'http://localhost:3001',
@@ -56,7 +56,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      const isAllowedVercel = origin && (origin.endsWith('.vercel.app') || origin === 'https://vercel.app');
+      if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') || isAllowedVercel) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
