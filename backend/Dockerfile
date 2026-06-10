@@ -13,4 +13,4 @@ COPY package*.json ./
 RUN npm install --omit=dev --legacy-peer-deps
 COPY --from=builder /app/dist ./dist
 EXPOSE 5000
-CMD ["sh", "-c", "npm run db:auto-init-prod && npm start"]
+CMD ["npm", "start"]
