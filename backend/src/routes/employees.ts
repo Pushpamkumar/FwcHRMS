@@ -11,6 +11,8 @@ import {
   resolveAlertAction,
   exportReport,
   getBadgeCounts,
+  getEmployeePerformanceStats,
+  createEmployeeAppraisal,
 } from '../controllers/employees';
 import { authenticateJWT, roleGuard } from '../middleware/auth';
 
@@ -23,6 +25,10 @@ router.get('/departments', authenticateJWT, listDepartments);
 router.get('/export-report', authenticateJWT, roleGuard('admin'), exportReport);
 router.get('/badge-counts', authenticateJWT, getBadgeCounts);
 router.post('/alerts/:id/action', authenticateJWT, roleGuard('admin'), resolveAlertAction);
+
+// Performance / Appraisal routes (must be registered BEFORE /:id detail route)
+router.get('/:id/performance-stats', authenticateJWT, getEmployeePerformanceStats);
+router.post('/:id/appraisal', authenticateJWT, roleGuard('manager', 'admin'), createEmployeeAppraisal);
 
 // Employee detail routes
 router.get('/:id', authenticateJWT, getEmployee);

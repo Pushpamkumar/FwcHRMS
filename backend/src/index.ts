@@ -15,10 +15,12 @@ import recruitmentRoutes from './routes/recruitment';
 import aiRoutes from './routes/ai';
 import goalRoutes from './routes/goals';
 import taskRoutes from './routes/tasks';
+import timesheetRoutes from './routes/timesheets';
 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
 
 // ==========================================
 // CUSTOM COOKIE PARSER MIDDLEWARE
@@ -81,6 +83,8 @@ app.use('/api/v1/recruitment', recruitmentRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/goals', goalRoutes);
 app.use('/api/v1/tasks', taskRoutes);
+app.use('/api/v1/timesheets', timesheetRoutes);
+
 
 
 // Base health endpoint

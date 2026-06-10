@@ -52,6 +52,14 @@ export interface IResume extends Document {
     requestedAt?: Date;
     processedAt?: Date;
   };
+  interviewDetails?: {
+    date: string;
+    time: string;
+    round: string;
+    interviewer: string;
+    meetUrl: string;
+    scheduledAt: Date;
+  }[];
   appliedAt: Date;
   updatedAt: Date;
 }
@@ -120,6 +128,14 @@ const ResumeSchema = new Schema<IResume>(
       requestedAt: { type: Date },
       processedAt: { type: Date }
     },
+    interviewDetails: [{
+      date: { type: String },
+      time: { type: String },
+      round: { type: String },
+      interviewer: { type: String },
+      meetUrl: { type: String },
+      scheduledAt: { type: Date, default: Date.now }
+    }],
     appliedAt: { type: Date, default: Date.now },
   },
   {

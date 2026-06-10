@@ -87,10 +87,10 @@ export const applyToJob = async (req: Request, res: Response) => {
       }
     }
 
-    // ─── IMMEDIATE SKILL-BASED AI SCREENING ─────────────────────────────────
-    // Run synchronously right at application time so score is always non-zero.
-    // Scoring: 60% skill match | 25% experience signals | 15% education signals
-    console.log(`[AI Screening] Running instant skill-based screening for ${candidateName}...`);
+    // ─── AI-BASED RESUME SCREENING ─────────────────────────────────────────
+    // Query Python FastAPI microservice for PDF parsing and Gemini AI screening.
+    // If offline or failed, falls back to a local text-based matching heuristic.
+    console.log(`[AI Screening] Running screening for ${candidateName} via AI Service...`);
 
     const jobSkills: string[] = job.requirements?.requiredSkills || [];
     const minExp: number = job.requirements?.minExperience || 0;
@@ -108,64 +108,141 @@ export const applyToJob = async (req: Request, res: Response) => {
       } catch (_) { /* ignore */ }
     }
 
-    // Helper: case-insensitive escape for regex matching
-    const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    // Match job skills against candidate's profile skills (primary) + URL/name (soft fallback)
-    const combinedText = [
-      ...candidateSkills,
-      candidateDesignation,
-      candidateName,
-      resumeUrl,
-    ].join(' ');
-
-    const matched: string[] = [];
-    const missing: string[] = [];
-
-    for (const skill of jobSkills) {
-      if (new RegExp(escapeReg(skill), 'i').test(combinedText)) {
-        matched.push(skill);
-      } else {
-        missing.push(skill);
-      }
-    }
-
-    // Skills match score (0-100)
-    const skillsMatch = jobSkills.length > 0
-      ? Math.round((matched.length / jobSkills.length) * 100)
-      : 50;
-
-    // Experience signal: check URL/name/designation for experience indicators
-    const expText = combinedText.toLowerCase();
+    let overallScore = 50;
+    let aiStatus: 'shortlisted' | 'review' | 'rejected' = 'review';
+    let skillsMatch = 50;
     let experienceMatch = 50;
-    if (minExp === 0) experienceMatch = 75; // fresher role — anyone qualifies
-    else if (expText.includes('senior') || expText.includes('lead') || expText.includes('sr.')) experienceMatch = 90;
-    else if (expText.includes('mid') || expText.includes('engineer') || expText.includes('developer')) experienceMatch = 70;
-    else if (expText.includes('intern') || expText.includes('fresher') || expText.includes('trainee')) experienceMatch = minExp === 0 ? 80 : 40;
+    let educationMatch = 50;
+    let keywordsMatch = 50;
+    let matchedSkills: string[] = [];
+    let missingSkills: string[] = [];
+    let aiSummary = '';
+    let aiModel = 'NexHR Skills Engine v2 (Local Fallback)';
+    let extractedInfo: any = {
+      totalExperience: minExp,
+      currentCompany: 'Unknown',
+      currentRole: 'Software Developer',
+      education: [],
+      certifications: []
+    };
 
-    // Education signal
-    let educationMatch = 60;
-    const eduText = combinedText.toLowerCase();
-    if (eduText.includes('b.tech') || eduText.includes('btech') || eduText.includes('b.e') ||
-        eduText.includes('m.tech') || eduText.includes('mtech') || eduText.includes('mca') ||
-        eduText.includes('bca') || eduText.includes('degree') || eduText.includes('university') ||
-        eduText.includes('lpu') || eduText.includes('iit') || eduText.includes('nit')) {
-      educationMatch = 90;
+    let aiScreened = false;
+
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/ai/screen-resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          resumeUrl,
+          jobPostingId: jobId,
+          candidateName,
+          candidateEmail,
+          candidatePhone,
+          jobTitle: job.title,
+          requiredSkills: jobSkills,
+          minExperience: minExp,
+          maxExperience: job.requirements?.maxExperience || 10,
+          education: job.requirements?.education || '',
+          location: job.requirements?.location || '',
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json() as any;
+        overallScore = data.overallScore;
+        aiStatus = data.status;
+        skillsMatch = data.scores.skillsMatch;
+        experienceMatch = data.scores.experienceMatch;
+        educationMatch = data.scores.educationMatch;
+        keywordsMatch = data.scores.keywordsMatch;
+        matchedSkills = data.matchedSkills || [];
+        missingSkills = data.missingSkills || [];
+        aiSummary = data.aiSummary;
+        aiModel = data.aiModel || 'Gemini AI';
+        if (data.extractedInfo) {
+          extractedInfo = data.extractedInfo;
+        }
+        aiScreened = true;
+        console.log(`[AI Screening] Microservice screening complete for ${candidateName}. Score: ${overallScore}%, Status: ${aiStatus}`);
+      } else {
+        console.warn(`[AI Screening] Microservice returned non-OK status: ${response.status}`);
+      }
+    } catch (err: any) {
+      console.error(`[AI Screening] Failed to connect to AI Service: ${err.message}`);
     }
 
-    // Weighted overall score
-    const overallScore = Math.min(100, Math.round(
-      (skillsMatch * 0.60) + (experienceMatch * 0.25) + (educationMatch * 0.15)
-    ));
+    if (!aiScreened) {
+      // ─── LOCAL FALLBACK TEXT-BASED HEURISTICS ────────────────────────────────
+      console.log(`[AI Screening] Executing local fallback engine for ${candidateName}...`);
+      const escapeReg = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      const urlLower = resumeUrl.toLowerCase();
+      let impliedSkills: string[] = [];
 
-    const keywordsMatch = Math.round((skillsMatch + experienceMatch + educationMatch) / 3);
-    const aiStatus: 'shortlisted' | 'review' | 'rejected' = overallScore >= 70 ? 'shortlisted' : overallScore >= 45 ? 'review' : 'rejected';
+      if (candidateSkills.length > 0) {
+        impliedSkills = candidateSkills;
+      } else if (urlLower.includes('senior') || urlLower.includes('lead') || urlLower.includes('principal') || urlLower.includes('architect')) {
+        impliedSkills = [
+          'React', 'Node.js', 'TypeScript', 'PostgreSQL', 'Next.js', 'FastAPI',
+          'JavaScript', 'REST API', 'Docker', 'AWS', 'Redis', 'MongoDB',
+          'Express', 'GraphQL', 'Git', 'CI/CD'
+        ];
+      } else if (urlLower.includes('mid') || urlLower.includes('engineer') || urlLower.includes('developer')) {
+        impliedSkills = ['React', 'JavaScript', 'Node.js', 'PostgreSQL', 'Git', 'REST API'];
+      } else if (urlLower.includes('junior') || urlLower.includes('intern') || urlLower.includes('fresher') || urlLower.includes('trainee')) {
+        impliedSkills = ['JavaScript', 'HTML', 'CSS', 'Git'];
+      }
 
-    const aiSummary = matched.length > 0
-      ? `Candidate profile matches ${matched.length}/${jobSkills.length} required skills (${matched.join(', ')}). ` +
-        `${missing.length > 0 ? `Skill gaps identified: ${missing.join(', ')}. ` : 'No major skill gaps. '}` +
-        `Overall compatibility score is ${overallScore}%. ${aiStatus === 'shortlisted' ? 'Recommended for shortlisting.' : aiStatus === 'review' ? 'Recommend manual review.' : 'Profile does not meet minimum requirements.'}`
-      : `No direct skill overlap detected from profile. Manual review recommended. Score: ${overallScore}%.`;
+      const combinedText = [
+        ...candidateSkills,
+        ...impliedSkills,
+        candidateDesignation,
+        candidateName,
+        resumeUrl,
+      ].join(' ');
+
+      for (const skill of jobSkills) {
+        if (new RegExp(escapeReg(skill), 'i').test(combinedText)) {
+          matchedSkills.push(skill);
+        } else {
+          missingSkills.push(skill);
+        }
+      }
+
+      skillsMatch = jobSkills.length > 0
+        ? Math.round((matchedSkills.length / jobSkills.length) * 100)
+        : 50;
+
+      const expText = combinedText.toLowerCase();
+      experienceMatch = 50;
+      if (minExp === 0) experienceMatch = 75;
+      else if (expText.includes('senior') || expText.includes('lead') || expText.includes('sr.')) experienceMatch = 90;
+      else if (expText.includes('mid') || expText.includes('engineer') || expText.includes('developer')) experienceMatch = 70;
+      else if (expText.includes('intern') || expText.includes('fresher') || expText.includes('trainee')) experienceMatch = minExp === 0 ? 80 : 40;
+
+      educationMatch = 60;
+      const eduText = combinedText.toLowerCase();
+      if (eduText.includes('b.tech') || eduText.includes('btech') || eduText.includes('b.e') ||
+          eduText.includes('m.tech') || eduText.includes('mtech') || eduText.includes('mca') ||
+          eduText.includes('bca') || eduText.includes('degree') || eduText.includes('university')) {
+        educationMatch = 90;
+      }
+
+      overallScore = Math.min(100, Math.round(
+        (skillsMatch * 0.60) + (experienceMatch * 0.25) + (educationMatch * 0.15)
+      ));
+
+      keywordsMatch = Math.round((skillsMatch + experienceMatch + educationMatch) / 3);
+      aiStatus = overallScore >= 70 ? 'shortlisted' : overallScore >= 45 ? 'review' : 'rejected';
+
+      aiSummary = matchedSkills.length > 0
+        ? `Fallback matches ${matchedSkills.length}/${jobSkills.length} required skills (${matchedSkills.join(', ')}). ` +
+          `${missingSkills.length > 0 ? `Skill gaps: ${missingSkills.join(', ')}. ` : 'No major skill gaps. '}` +
+          `Score: ${overallScore}%. Recommended status: ${aiStatus}.`
+        : `No direct skill overlap detected. Score: ${overallScore}%.`;
+    }
 
     // Save screening result immediately via a single Resume.create()
     const resume = await Resume.create({
@@ -181,10 +258,11 @@ export const applyToJob = async (req: Request, res: Response) => {
         status: aiStatus,
         processedAt: new Date(),
         scores: { skillsMatch, experienceMatch, educationMatch, keywordsMatch },
-        matchedSkills: matched,
-        missingSkills: missing,
+        matchedSkills,
+        missingSkills,
         aiSummary,
-        aiModel: 'NexHR Skills Engine v2',
+        aiModel,
+        extractedInfo
       },
     });
 
@@ -198,7 +276,7 @@ export const applyToJob = async (req: Request, res: Response) => {
     }
     await job.save();
 
-    console.log(`[AI Screening] Done. ${candidateName}: score=${overallScore}%, matched=[${matched.join(',')}], status=${aiStatus}`);
+    console.log(`[AI Screening] Done. ${candidateName}: score=${overallScore}%, status=${aiStatus}`);
     // ─────────────────────────────────────────────────────────────────────────
 
     return res.status(201).json({
@@ -518,6 +596,11 @@ export const scheduleGoogleMeet = async (req: AuthenticatedRequest, res: Respons
 
     const oldStage = resume.applicationStage;
     resume.applicationStage = round;
+
+    // Persist interview details so recruiter dashboard can fetch real data
+    if (!resume.interviewDetails) resume.interviewDetails = [];
+    resume.interviewDetails.push({ date, time, round, interviewer, meetUrl, scheduledAt: new Date() });
+
     await resume.save();
 
     const job = await JobPosting.findById(resume.jobPostingId);
@@ -787,6 +870,42 @@ export const updateHiringRequestStatus = async (req: AuthenticatedRequest, res: 
     });
   } catch (err: any) {
     console.error('Update hiring request status error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+// ==========================================
+// 18. GET ALL RECRUITER APPLICATIONS (Across all jobs)
+// Used for: Interviews tab, Offers & Hires tab, Analytics tab
+// ==========================================
+export const getAllRecruiterApplications = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { filter } = req.query; // 'interviews' | 'offers' | 'all'
+
+    let query: Record<string, any> = {};
+
+    if (filter === 'interviews') {
+      // Only apps that have at least one scheduled interview
+      query = { 'interviewDetails.0': { $exists: true } };
+    } else if (filter === 'offers') {
+      // Apps with offer details set (pending, approved, or candidate hired)
+      query = {
+        $or: [
+          { 'offerDetails.status': { $in: ['pending_manager', 'approved'] } },
+          { applicationStage: { $in: ['offer', 'hired'] } }
+        ]
+      };
+    }
+    // else 'all' — return everything for analytics
+
+    const applications = await Resume.find(query)
+      .populate('jobPostingId', 'title requirements')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    return res.status(200).json(applications);
+  } catch (err: any) {
+    console.error('Get all recruiter applications error:', err);
     return res.status(500).json({ message: 'Internal server error.' });
   }
 };

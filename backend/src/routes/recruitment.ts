@@ -17,6 +17,7 @@ import {
   createHiringRequest,
   getHiringRequests,
   updateHiringRequestStatus,
+  getAllRecruiterApplications,
 } from '../controllers/recruitment';
 import { authenticateJWT, roleGuard } from '../middleware/auth';
 
@@ -52,5 +53,8 @@ router.post('/applications/:id/process-offer', authenticateJWT, roleGuard('admin
 router.post('/hiring-requests', authenticateJWT, roleGuard('admin', 'manager'), createHiringRequest);
 router.get('/hiring-requests', authenticateJWT, roleGuard('admin', 'manager', 'hr_recruiter'), getHiringRequests);
 router.put('/hiring-requests/:id/status', authenticateJWT, roleGuard('admin', 'hr_recruiter'), updateHiringRequestStatus);
+
+// All applications across all jobs (for recruiter dashboard - interviews, offers, analytics)
+router.get('/all-applications', authenticateJWT, roleGuard('admin', 'hr_recruiter'), getAllRecruiterApplications);
 
 export default router;

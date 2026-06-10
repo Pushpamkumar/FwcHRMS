@@ -1002,4 +1002,124 @@ export const getBadgeCounts = async (req: AuthenticatedRequest, res: Response) =
   }
 };
 
+// ==========================================
+// 12. GET EMPLOYEE PERFORMANCE & REVIEW STATS
+// ==========================================
+export const getEmployeePerformanceStats = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const employee = await User.findById(id, '-passwordHash -refreshTokens');
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
+
+    const employeeId = employee.employeeId;
+
+    // 1. Fetch active payroll CTC
+    const payrollRes = await pgPool.query(
+      'SELECT ctc_annual FROM payroll_structures WHERE employee_id = $1 AND is_active = true LIMIT 1',
+      [employeeId]
+    );
+    const ctcAnnual = payrollRes.rows[0]?.ctc_annual ? parseFloat(payrollRes.rows[0].ctc_annual) : 0;
+
+    // 2. Fetch attendance logs and calculate rate
+    const attendanceRes = await pgPool.query(
+      'SELECT status FROM attendance WHERE employee_id = $1',
+      [employeeId]
+    );
+    const totalDays = attendanceRes.rows.length;
+    const presentDays = attendanceRes.rows.filter(r => ['present', 'late', 'work_from_home'].includes(r.status)).length;
+    const attendanceRate = totalDays > 0 ? parseFloat(((presentDays / totalDays) * 100).toFixed(1)) : 100.0;
+
+    // 3. Fetch tasks and calculate completion percentage
+    const tasksRes = await pgPool.query(
+      'SELECT completed FROM tasks WHERE employee_id = $1',
+      [employeeId]
+    );
+    const totalTasks = tasksRes.rows.length;
+    const completedTasks = tasksRes.rows.filter(r => r.completed).length;
+    const taskCompletionRate = totalTasks > 0 ? parseFloat(((completedTasks / totalTasks) * 100).toFixed(1)) : 0.0;
+
+    // 4. Fetch latest performance review
+    const performanceRes = await pgPool.query(
+      'SELECT overall_score, rating, manager_comments, promotion_recommended, increment_recommended FROM performance_reviews WHERE employee_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [employeeId]
+    );
+    const overallScore = performanceRes.rows[0]?.overall_score ? parseFloat(performanceRes.rows[0].overall_score) : null;
+    const rating = performanceRes.rows[0]?.rating || null;
+    const managerComments = performanceRes.rows[0]?.manager_comments || '';
+    const promotionRecommended = performanceRes.rows[0]?.promotion_recommended || false;
+    const incrementRecommended = performanceRes.rows[0]?.increment_recommended ? parseFloat(performanceRes.rows[0].increment_recommended) : 0;
+
+    return res.status(200).json({
+      employeeId,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      designation: employee.employmentDetails?.designation || 'Staff',
+      ctcAnnual,
+      attendanceRate,
+      totalAttendanceDays: totalDays,
+      presentAttendanceDays: presentDays,
+      taskCompletionRate,
+      completedTasks,
+      totalTasks,
+      performanceReview: {
+        overallScore,
+        rating,
+        managerComments,
+        promotionRecommended,
+        incrementRecommended
+      }
+    });
+  } catch (err: any) {
+    console.error('Get employee performance stats error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+// ==========================================
+// 13. CREATE EMPLOYEE APPRAISAL (PERFORMANCE REVIEW)
+// ==========================================
+export const createEmployeeAppraisal = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { rating, overallScore, managerComments, promotionRecommended, incrementRecommended } = req.body;
+    const reviewerId = req.user?.employeeId || 'SYSTEM';
+
+    const employee = await User.findById(id);
+    if (!employee) {
+      return res.status(404).json({ message: 'Employee not found.' });
+    }
+
+    const employeeId = employee.employeeId;
+
+    // Insert into performance_reviews table
+    const result = await pgPool.query(`
+      INSERT INTO performance_reviews (
+        employee_id, reviewer_id, review_period, review_type, status, 
+        overall_score, rating, manager_comments, promotion_recommended, increment_recommended, created_at
+      ) VALUES ($1, $2, 'Q2 2026', 'annual', 'submitted', $3, $4, $5, $6, $7, NOW())
+      RETURNING *
+    `, [
+      employeeId,
+      reviewerId,
+      overallScore,
+      rating,
+      managerComments || null,
+      promotionRecommended || false,
+      incrementRecommended || 0
+    ]);
+
+    return res.status(201).json({
+      message: 'Appraisal review submitted successfully.',
+      review: result.rows[0]
+    });
+  } catch (err: any) {
+    console.error('Create employee appraisal error:', err);
+    return res.status(500).json({ message: 'Internal server error.' });
+  }
+};
+
+
 
