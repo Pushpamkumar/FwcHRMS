@@ -76,7 +76,11 @@ redisClient.on('ready', () => {
 });
 
 redisClient.on('error', (err) => {
-  console.error('[Redis] Client error:', err);
+ // Suppress NOAUTH errors from info command during connection
+ if (err.message && err.message.includes('NOAUTH')) {
+   return;
+ }
+ console.error('[Redis] Client error:', err);
 });
 
 export const connectRedis = async (): Promise<void> => {
